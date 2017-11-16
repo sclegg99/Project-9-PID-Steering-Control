@@ -1,26 +1,25 @@
-## Writeup Template
+# PID Control Project
 
-### You can use this file as a template for your writeup if you want to submit it as a markdown file, but feel free to use some other method and submit a pdf if you prefer.
+The goal of this project is to implement a PID controller for steering control and then to optimize the controller gains. The optimized controller is tested using the UDACITY simulator ![alt text][image1] and completion of a circuit of the simulator track meets the project specifications (see [Rubric Points ](https://review.udacity.com/#!/rubrics/824/view)).
 
----
+## Implementation
 
-**Advanced Lane Finding Project**
+The simulator provides the cross track error (cte) which is feed into the PID controller.  The car steering control is output by the PID controller.  The PID controller was coded as a C++ class based on the skeleton provided for this project.
 
-The goals / steps of this project are the following:
+The PID gains were optimized using a gradient decent method, referred to as Twiddle. A detailed explanation of [Twiddle](https://www.youtube.com/watch?v=2uQ2BSzDvXs)  is available elsewhere.  I chose to use an error function that was the mean squared cte summed over all the simulation steps as illustrated in the following equation.
 
-* Compute the camera calibration matrix and distortion coefficients given a set of chessboard images.
-* Apply a distortion correction to raw images.
-* Use color transforms, gradients, etc., to create a thresholded binary image.
-* Apply a perspective transform to rectify binary image ("birds-eye view").
-* Detect lane pixels and fit to find the lane boundary.
-* Determine the curvature of the lane and vehicle position with respect to center.
-* Warp the detected lane boundaries back onto the original image.
-* Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
+![Error][image2]
+
+The Error started accumulation after 100 simulation steps.  Then the Error was accumulated until the car had traveled approximately 1.5 miles (assuming a simulator time step of 100ms).  Finally the error was normalized by the distance (d) traveled after the start of the Error accumulation.
+
+One of the issues with the Twiddle routine is that does not save the past Error history.  Therefore, it frequently makes Error evaluations for parameter estimates that have either already been evaluated or beyond the range of parameter estimates that have been previously evaluated.  Hence the routine can be quite inefficient due to the unnecessary Error evaluations.
+
+An alternate to the Twiddle routine which performed a one dimensional search with a golden ratio step size was implemented and tested.  The one dimensional search method was not very efficient either.  I would speculate that the cost function (Error) was
 
 [//]: # (Image References)
 
-[image1]: ./figures/undistort_output.png "Undistorted"
-[image2]: ./test_images/test1.jpg "Road Transformed"
+[image1]: ./figures/Simulator_Shot.png "Simulator Illustration"
+[image2]: ./figures/Error_Equation.gif "Error Equation"
 [image3]: ./figures/binary_combo_example.jpg "Binary Example"
 [image4]: ./figures/warped_straight_lines.jpg "Warp Example"
 [image5]: ./figures/color_fit_lines.jpg "Fit Visual"
@@ -47,7 +46,7 @@ The code for this step is contained in the first code cell of the IPython notebo
 
 I start by preparing "object points", which will be the (x, y, z) coordinates of the chessboard corners in the world. Here I am assuming the chessboard is fixed on the (x, y) plane at z=0, such that the object points are the same for each calibration image.  Thus, `objp` is just a replicated array of coordinates, and `objpoints` will be appended with a copy of it every time I successfully detect all chessboard corners in a test image.  `imgpoints` will be appended with the (x, y) pixel position of each of the corners in the image plane with each successful chessboard detection.  
 
-I then used the output `objpoints` and `imgpoints` to compute the camera calibration and distortion coefficients using the `cv2.calibrateCamera()` function.  I applied this distortion correction to the test image using the `cv2.undistort()` function and obtained this result: 
+I then used the output `objpoints` and `imgpoints` to compute the camera calibration and distortion coefficients using the `cv2.calibrateCamera()` function.  I applied this distortion correction to the test image using the `cv2.undistort()` function and obtained this result:
 
 ![alt text][image1]
 
@@ -83,9 +82,9 @@ dst = np.float32(
 
 This resulted in the following source and destination points:
 
-| Source        | Destination   | 
-|:-------------:|:-------------:| 
-| 585, 460      | 320, 0        | 
+| Source        | Destination   |
+|:-------------:|:-------------:|
+| 585, 460      | 320, 0        |
 | 203, 720      | 320, 720      |
 | 1127, 720     | 960, 720      |
 | 695, 460      | 960, 0        |
