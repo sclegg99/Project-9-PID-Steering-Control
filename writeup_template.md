@@ -14,113 +14,38 @@ The Error started accumulation after 100 simulation steps.  Then the Error was a
 
 One of the issues with the Twiddle routine is that does not save the past Error history.  Therefore, it frequently makes Error evaluations for parameter estimates that have either already been evaluated or beyond the range of parameter estimates that have been previously evaluated.  Hence the routine can be quite inefficient due to the unnecessary Error evaluations.
 
-An alternate to the Twiddle routine which performed a one dimensional search with a golden ratio step size was implemented and tested.  The one dimensional search method was not very efficient either.  I would speculate that the cost function (Error) was
+An alternate to the Twiddle routine which performed a one dimensional search along each parameter axis using a golden ratio step size.  The one dimensional search method was not very efficient either.  I would speculate that the slope of the cost function (Error) was small, hence, many parameter evaluation were required to reach the Error minimum.
+
+In addition to using PID control for the car steering, PID control of the speed was also implement.  In the case of speed control, a preset speed was choses (variable setSpeed) and the difference between the actual speed and setSpeed was used for feedback to the PID controller.  The output of the speed controller was the car throttle setting.
+
+## Reflection
+
+The Kp gain has the effect of causing the car to steer in the opposite direction of the cte.  Figure 2 illustrates this effect with Kp set to 0.1, 0.21, and 0.5 while Kd and Ki were set to zero.  Regardless of the magnitude of the Kp value, the car would oscillate from one side of the track to the other side until the car would eventually leave the road.  The figure also shows that the rate of correction increased with larger Kp values. It is desirable to have "quick" steering correction, hence a large value of Kp is needed.
+
+![alt text][image3]
+
+The steering oscillations can be damped with an appropriate value of Kd. Figure 3 illustrates the effect of varying Kd on the steering control. This figure plots the cte as a function of distance for Kp=0.21 and Ki=0.  It can be observed from this plot that the steering oscillations have been significantly dampened. The figure also shows that there is a consistent tracking bias (the cte is always positive) with values of Kd=10 and 20.
+
+ ![alt text][image4]
+
+ The tracking bias is dealt with by introducing Ki.  Figure 4 shows the effect of Ki with Kp=.21 and Kd=20.  This figure clearly shows that the car is not tracking about the center of the track.  Although it still shows some tendency to oscillate around cte=0.
+
+ ![alt text][image5]
+
+ For the final submission, a setSpeed of 35 miles per hour was selected.  The "optimal gains", as found by the Twiddle routine, for the steering control and speed control are listed below.
+
+ | Gain  | Steering      | Throttle      |
+ |:-----:|:-------------:|:-------------:|
+ | Kp    |  0.2123       |  0.1000       |
+ | Ki    |  0.0026       |  0.0000       |
+ | Kd    | 21.5840       | -0.0274       |
+
+Alternate values of setSpeed were evaluate (such as 45mph). However, optimal values of gain for the steering control were never identified because the car would always run off the track as it entered the corners.  The root cause seems to lie in the fact that the car does has no way to "anticipate" that it is about to enter a curve and hence prepare for entering the curve by either slowing down or applying a larger steering correction.  A solution to this might be to combine the PID steering control with a line finding algorithm (ala CARND project 3 on Behavioral Cloning).
 
 [//]: # (Image References)
 
 [image1]: ./figures/Simulator_Shot.png "Simulator Illustration"
 [image2]: ./figures/Error_Equation.png "Error Equation"
-[image3]: ./figures/binary_combo_example.jpg "Binary Example"
-[image4]: ./figures/warped_straight_lines.jpg "Warp Example"
-[image5]: ./figures/color_fit_lines.jpg "Fit Visual"
-[image6]: ./figures/example_output.jpg "Output"
-[video1]: ./project_video.mp4 "Video"
-
-## [Rubric](https://review.udacity.com/#!/rubrics/571/view) Points
-
-### Here I will consider the rubric points individually and describe how I addressed each point in my implementation.  
-
----
-
-### Writeup / README
-
-#### 1. Provide a Writeup / README that includes all the rubric points and how you addressed each one.  You can submit your writeup as markdown or pdf.  [Here](https://github.com/udacity/CarND-Advanced-Lane-Lines/blob/master/writeup_template.md) is a template writeup for this project you can use as a guide and a starting point.  
-
-You're reading it!
-
-### Camera Calibration
-
-#### 1. Briefly state how you computed the camera matrix and distortion coefficients. Provide an example of a distortion corrected calibration image.
-
-The code for this step is contained in the first code cell of the IPython notebook located in "./examples/example.ipynb" (or in lines # through # of the file called `some_file.py`).  
-
-I start by preparing "object points", which will be the (x, y, z) coordinates of the chessboard corners in the world. Here I am assuming the chessboard is fixed on the (x, y) plane at z=0, such that the object points are the same for each calibration image.  Thus, `objp` is just a replicated array of coordinates, and `objpoints` will be appended with a copy of it every time I successfully detect all chessboard corners in a test image.  `imgpoints` will be appended with the (x, y) pixel position of each of the corners in the image plane with each successful chessboard detection.  
-
-I then used the output `objpoints` and `imgpoints` to compute the camera calibration and distortion coefficients using the `cv2.calibrateCamera()` function.  I applied this distortion correction to the test image using the `cv2.undistort()` function and obtained this result:
-
-![alt text][image1]
-
-### Pipeline (single images)
-
-#### 1. Provide an example of a distortion-corrected image.
-
-To demonstrate this step, I will describe how I apply the distortion correction to one of the test images like this one:
-![alt text][image2]
-
-#### 2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
-
-I used a combination of color and gradient thresholds to generate a binary image (thresholding steps at lines # through # in `another_file.py`).  Here's an example of my output for this step.  (note: this is not actually from one of the test images)
-
-![alt text][image3]
-
-#### 3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
-
-The code for my perspective transform includes a function called `warper()`, which appears in lines 1 through 8 in the file `example.py` (output_images/examples/example.py) (or, for example, in the 3rd code cell of the IPython notebook).  The `warper()` function takes as inputs an image (`img`), as well as source (`src`) and destination (`dst`) points.  I chose the hardcode the source and destination points in the following manner:
-
-```python
-src = np.float32(
-    [[(img_size[0] / 2) - 55, img_size[1] / 2 + 100],
-    [((img_size[0] / 6) - 10), img_size[1]],
-    [(img_size[0] * 5 / 6) + 60, img_size[1]],
-    [(img_size[0] / 2 + 55), img_size[1] / 2 + 100]])
-dst = np.float32(
-    [[(img_size[0] / 4), 0],
-    [(img_size[0] / 4), img_size[1]],
-    [(img_size[0] * 3 / 4), img_size[1]],
-    [(img_size[0] * 3 / 4), 0]])
-```
-
-This resulted in the following source and destination points:
-
-| Source        | Destination   |
-|:-------------:|:-------------:|
-| 585, 460      | 320, 0        |
-| 203, 720      | 320, 720      |
-| 1127, 720     | 960, 720      |
-| 695, 460      | 960, 0        |
-
-I verified that my perspective transform was working as expected by drawing the `src` and `dst` points onto a test image and its warped counterpart to verify that the lines appear parallel in the warped image.
-
-![alt text][image4]
-
-#### 4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
-
-Then I did some other stuff and fit my lane lines with a 2nd order polynomial kinda like this:
-
-![alt text][image5]
-
-#### 5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
-
-I did this in lines # through # in my code in `my_other_file.py`
-
-#### 6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
-
-I implemented this step in lines # through # in my code in `yet_another_file.py` in the function `map_lane()`.  Here is an example of my result on a test image:
-
-![alt text][image6]
-
----
-
-### Pipeline (video)
-
-#### 1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
-
-Here's a [link to my video result](./project_video.mp4)
-
----
-
-### Discussion
-
-#### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
-
-Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
+[image3]: ./figures/VariationofKp.png "Effect of Kp"
+[image4]: ./figures/VariationofKd.png "Effect of Kd"
+[image5]: ./figures/VariationofKi.png "Effect of Ki"
