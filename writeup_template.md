@@ -8,7 +8,7 @@ The simulator provides the cross track error (cte) which is feed into the PID co
 
 The PID gains were optimized using a gradient decent method, referred to as Twiddle. A detailed explanation of [Twiddle](https://www.youtube.com/watch?v=2uQ2BSzDvXs)  is available elsewhere.  I chose to use an error function that was the mean squared cte summed over all the simulation steps as illustrated in the following equation.
 
-![Error][image2]
+![alt text][image2]
 
 The Error started accumulation after 100 simulation steps.  Then the Error was accumulated until the car had traveled approximately 1.5 miles (assuming a simulator time step of 100ms).  Finally the error was normalized by the distance (d) traveled after the start of the Error accumulation.
 
@@ -19,7 +19,7 @@ An alternate to the Twiddle routine which performed a one dimensional search wit
 [//]: # (Image References)
 
 [image1]: ./figures/Simulator_Shot.png "Simulator Illustration"
-[image2]: ./figures/Error_Equation.gif "Error Equation"
+[image2]: ./figures/Error_Equation.png "Error Equation"
 [image3]: ./figures/binary_combo_example.jpg "Binary Example"
 [image4]: ./figures/warped_straight_lines.jpg "Warp Example"
 [image5]: ./figures/color_fit_lines.jpg "Fit Visual"
