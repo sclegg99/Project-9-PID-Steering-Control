@@ -46,8 +46,8 @@ Alternate values of setSpeed were evaluate (such as 45mph). However, optimal val
 
 [image1]: ./figures/Simulator_Shot.png "Simulator Illustration"
 [image2]: ./figures/Error_Equation.png "Error Equation"
-[image3]: ./figures/VariationofKp.png "Effect of Kp"
-[image4]: ./figures/VariationofKd.png "Effect of Kd"
-[image5]: ./figures/VariationofKi.png "Effect of Ki"
+[image3]: ./figures/VariationOfKp.png "Effect of Kp"
+[image4]: ./figures/VariationOfKd.png "Effect of Kd"
+[image5]: ./figures/VariationOfKi.png "Effect of Ki"
 
 How about that
