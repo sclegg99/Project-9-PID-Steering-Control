@@ -122,11 +122,11 @@ int main()
 //                        cout << "eating cte " << cte << endl;
                     } else {
                         // j[1] is the data JSON object
-
+//                        const double Angle2Steer = -deg2rad(25.);
                         double speed = stod(j[1]["speed"].get<string>());
 //                        double angle = stod(j[1]["steering_angle"].get<string>());
                         double throttleValue;
-                        double steerValue;
+                        double steerValue = 0.;
                         double *steerGains = nullptr;
                         double *throttleGains = nullptr;
 
