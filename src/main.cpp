@@ -3,7 +3,6 @@
 #include <math.h>
 #include "json.hpp"
 #include "PID.h"
-#include "Twiddle.h"
 
 // for convenience
 using json = nlohmann::json;
@@ -44,9 +43,6 @@ enum Optimize {steerOptimze, throttleOptimze, finishedOptimize};
 int main()
 {
     uWS::Hub h;
-    
-    // test if using Twiddle optimization
-    Optimize optimize = finishedOptimize;
 
     // Construct steering PID controller
     PID pidSteer;
@@ -55,9 +51,7 @@ int main()
     
     // Initial PID gains {Kp, Ki, Kd}
     double steerGains[3] = {0.2113, 0.0026, 21.5840};
-    double throttleGains[3] = {0.1000, 0.0000, -0.0274};
-    
-    int p_num = 3;
+    double throttleGains[3] = {0.1000, 0.0001, -0.0274};
     
     // PID bounds
     double steerBounds[2] = {-1., 1.};
@@ -70,41 +64,22 @@ int main()
     pidSteer.StoreGains(steerGains);
     pidThrottle.StoreGains(throttleGains);
     
-    // Initialize the PID controllers with inputs
-    pidSteer.Init(steerGains, steerBounds, 500);
-    pidThrottle.Init(throttleGains, throttleBounds, 100);
-
-    // Construct Twiddle optimizer
-    Twiddle tw;
     
-    // Initial search steps
-    double steerSearch[3] = {0.02, 0.002, 1.};
-    double throttleSearch[3] = {.2, .01, 1.};
-    
-    // Desired speed
+    // Desired set points
+    double setCte = 0.;
     double setSpeed = 35.;
     
-    // Initialize Twiddle optimizer
-    double tol   = .001;
-    double maxDistance = 1.;
-    if(optimize == finishedOptimize)
-        maxDistance = 10.;
+    // Number of steps before accumulating error
+    int n2error = 0;
     
-    // Initialize Twiddle for steer or throttle PID
-    switch (optimize) {
-        case steerOptimze:
-            tw.Init(steerGains, steerSearch, p_num, tol);
-            break;
-        case throttleOptimze:
-            tw.Init(throttleGains, throttleSearch, p_num, tol);
-            break;
-        case finishedOptimize:
-            tw.maxDistance=10.;
-        default:
-            break;
-    }
+    // Initialize the PID controllers with inputs
+    pidSteer.Init(steerGains, steerBounds, &setCte, &n2error);
+    pidThrottle.Init(throttleGains, throttleBounds, &setSpeed, &n2error);
+    
+    double distance = 0.;
+    double maxDistance = 10.;
 
-    h.onMessage([&tw, &pidSteer, &pidThrottle, &optimize, &maxDistance, &setSpeed](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
+    h.onMessage([&pidSteer, &pidThrottle, &distance, &maxDistance](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
         // "42" at the start of the message means there's a websocket message event.
         // The 4 signifies a websocket message
         // The 2 signifies a websocket event
@@ -116,133 +91,40 @@ int main()
                 string event = j[0].get<string>();
                 if (event == "telemetry") {
                     double cte = stod(j[1]["cte"].get<string>());
-                    
-                    // Need to gobble up data until reset has been achieved
-                    if(!pidSteer.isInitialized && cte != 0.7598) {
-//                        cout << "eating cte " << cte << endl;
-                    } else {
-                        // j[1] is the data JSON object
+                    // j[1] is the data JSON object
 //                        const double Angle2Steer = -deg2rad(25.);
-                        double speed = stod(j[1]["speed"].get<string>());
+                    double speed = stod(j[1]["speed"].get<string>());
 //                        double angle = stod(j[1]["steering_angle"].get<string>());
-                        double throttleValue;
-                        double steerValue = 0.;
-                        double *steerGains = nullptr;
-                        double *throttleGains = nullptr;
+                    double throttleValue = 1.;
+                    double steerValue = 0.;
+                    
+                    // Get PID control values given current cte and speed (or start controller if necessary)
+                    if(pidSteer.isInitialized) {
+                        steerValue = pidSteer.ControlOutput(cte);
+                        throttleValue = pidThrottle.ControlOutput(speed);
+                    } else {
+                        pidSteer.Start(cte);
+                        pidThrottle.Start(speed);
+                    }
+                    
+                    // Send to simulator the new steering and throttle values
+                    json msgJson;
+                    msgJson["steering_angle"] = steerValue;
+                    msgJson["throttle"] = throttleValue;
+                    auto msg = "42[\"steer\"," + msgJson.dump() + "]";
+                    ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
 
-                        /*
-                         * TODO: Calcuate steering value here, remember the steering value is
-                         * [-1, 1].
-                         * NOTE: Feel free to play around with the throttle and speed. Maybe use
-                         * another PID controller to control the speed!
-                         */
-                        
-                        // Get PID control values given current cte and speed (or initalize if necessary)
-                        if(pidSteer.isInitialized) {
-                            steerValue = pidSteer.ControlOutput(cte);
-                            throttleValue = pidThrottle.ControlOutput(speed-setSpeed);
-                        } else {
-                            // Get gains based on which PID gains are being Twiddled
-                            switch (optimize) {
-                                case steerOptimze:
-                                    steerGains = tw.p;
-                                    throttleGains = pidThrottle.gains;
-                                    break;
-                                    
-                                case throttleOptimze:
-                                    steerGains = pidSteer.gains;
-                                    throttleGains = tw.p;
-                                    
-                                case finishedOptimize:
-                                    steerGains = pidSteer.gains;
-                                    throttleGains = pidThrottle.gains;
-                                    
-                                default:
-                                    break;
-                            }
-                            pidSteer.Start(cte);
-                            pidThrottle.Start(speed-setSpeed);
-                        }
-                        
-                        // Send to simulator the new steering and throttle values
-                        json msgJson;
-                        msgJson["steering_angle"] = steerValue;
-                        msgJson["throttle"] = throttleValue;
-                        auto msg = "42[\"steer\"," + msgJson.dump() + "]";
-                        ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
-
-                        // Accumulate the error and count the number of steps
-                        double distanceIncrement = speed*0.1/3600.;
-                        tw.distance += distanceIncrement; // assuming 0.1 sec per simulator increment
-                        
-                        if(optimize == finishedOptimize)
-                            printf("CTE: %5.2f, Steering Value: %6.3f, Throttle: %6.3f, Distance Traveled: %6.2f\n",cte,steerValue, throttleValue, tw.distance);
-                        
-                        // Check stopping criteria
-                        if( (tw.distance > maxDistance) || (fabs(cte) > 2.0) ) {
-                            
-                            switch (optimize) {
-                                case steerOptimze:
-                                    tw.SetError(pidSteer.error, pidSteer.nSteps, pidSteer.nCalls);
-                                    printf("For gains: ");
-                                    for(int j=0; j<tw.p_num; j++)
-                                        printf("p[%d]=%9.4f ",j,tw.p[j]);
-                                    printf("Error: %10.3e\n",tw.error);
-                                    // Get new gain estimate
-                                    if( tw.Update() ) {
-                                        printf("*** Found solution ***\n");
-                                        printf("Optimal gain: ");
-                                        for(int j=0; j<tw.p_num; j++)
-                                            printf("p[%d]=%9.4f ",j,tw.p[j]);
-                                        printf("\n");
-                                        optimize = finishedOptimize;   // now do a couple of laps with the final solution
-                                        tw.maxDistance = 10.;
-                                    }
-                                    break;
-                                    
-                                case throttleOptimze:
-                                    tw.SetError(pidThrottle.error, pidThrottle.nSteps, pidThrottle.nCalls);
-                                    printf("For gains: ");
-                                    for(int j=0; j<tw.p_num; j++)
-                                        printf("p[%d]=%9.4f ",j,tw.p[j]);
-                                    printf("Error: %10.3e\n",tw.error);
-                                    // Get new gain estimate
-                                    if( tw.Update() ) {
-                                        printf("*** Found solution ***\n");
-                                        printf("Optimal gain: ");
-                                        for(int j=0; j<tw.p_num; j++)
-                                            printf("p[%d]=%9.4f ",j,tw.p[j]);
-                                        printf("\n");
-                                        optimize = finishedOptimize;   // now do a couple of laps with the final solution
-                                        tw.maxDistance = 10.;
-                                    }
-                                    break;
-                                    
-                                case finishedOptimize:
-                                    tw.SetError(pidSteer.error, pidSteer.nSteps, pidSteer.nCalls);
-                                    simulatorRestart(ws);
-                                    printf("Total steering error is %f\n",tw.error);
-                                    exit(0);
-                                    break;
-                                    
-                                default:
-                                    break;
-                            }
-                            
-                            // set values and simulator
-                            pidSteer.isInitialized = false;
-                            pidThrottle.isInitialized = false;
-                            tw.count = 0;
-                            tw.error = 0.;
-                            tw.distance = 0.;
-                            cte = 0;
-                            json msgJson;
-                            msgJson["steering_angle"] = 0.;
-                            msgJson["throttle"] = 0.;
-                            auto msg = "42[\"steer\"," + msgJson.dump() + "]";
-                            ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
-                            simulatorRestart(ws);
-                        }
+                    // Accumulate the error and count the number of steps
+                    double distanceIncrement = speed*0.1/3600.;
+                    distance += distanceIncrement; // assuming 0.1 sec per simulator increment
+                    printf("CTE: %5.2f, Steering Value: %6.3f, Throttle: %6.3f, Distance Traveled: %6.2f\n",cte,steerValue, throttleValue, distance);
+                    
+                    // Check stopping criteria
+                    if( distance > maxDistance) {
+                        printf("Total steering error is %f\n",sqrt(pidSteer.GetError())/distance);
+                        printf("Total speed error is %f\n",sqrt(pidThrottle.GetError())/distance);
+                        simulatorRestart(ws);
+                        exit(0);
                     }
                 }
             } else {

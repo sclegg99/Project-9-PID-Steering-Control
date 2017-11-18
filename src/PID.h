@@ -2,9 +2,31 @@
 #define PID_H
 
 class PID {
-    // PID result lower and upper limits
+    /*
+     * PID result lower and upper limits
+     */
     double lower_limit;
     double upper_limit;
+    
+    /*
+     * Signal set point
+     */
+    double setPoint;
+    
+    /*
+     * Coefficients
+     */
+    double Kp;
+    double Ki;
+    double Kd;
+    
+    /*
+     * Errors
+     */
+    double p_error;
+    double i_error;
+    double d_error;
+    double accumulatedError;
     
 public:
     /*
@@ -33,21 +55,6 @@ public:
     double *bounds;
     
     /*
-     * Errors
-     */
-    double p_error;
-    double i_error;
-    double d_error;
-    double error;
-    
-    /*
-     * Coefficients
-     */
-    double Kp;
-    double Ki;
-    double Kd;
-    
-    /*
      * Constructor
      */
     PID();
@@ -61,7 +68,7 @@ public:
      * Initialize PID controller with
      * input parameters.
      */
-    void Init(double *gains, double *bounds, int nStart);
+    void Init(double *gains, double *bounds, double *setPoint, int *nStart);
     
     /*
      * Store the control output bounds
@@ -92,6 +99,12 @@ public:
      * Calculate control output
      */
     double ControlOutput(double cte);
+    
+    /*
+     * Return the accumulated error
+     */
+    double GetError();
+    
 };
 
 #endif /* PID_H */

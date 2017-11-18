@@ -50,5 +50,4 @@ dependencies: \
   /usr/local/include/uWS/Socket.h /usr/local/include/uWS/HTTPSocket.h \
   /usr/local/include/uWS/Extensions.h /usr/local/include/uWS/Node.h \
   /Users/sclegg/Self\ Driving\ Car/Term\ 2/CarND-PID-Control-Project/src/json.hpp \
-  /Users/sclegg/Self\ Driving\ Car/Term\ 2/CarND-PID-Control-Project/src/PID.h \
-  /Users/sclegg/Self\ Driving\ Car/Term\ 2/CarND-PID-Control-Project/src/Twiddle.h
+  /Users/sclegg/Self\ Driving\ Car/Term\ 2/CarND-PID-Control-Project/src/PID.h

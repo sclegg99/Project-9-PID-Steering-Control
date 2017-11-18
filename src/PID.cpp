@@ -15,26 +15,30 @@ PID::PID(): isInitialized(false) {};
 PID::~PID() {};
 
 // Initialize the PID controller
-void PID::Init(double *gains,double *bounds,int n) {
+void PID::Init(double *gains, double *bounds, double *setPoint, int *n2error) {
     // First store the gains
     StoreGains(gains);
     
     // Now store the bounds of the control ouput
     StoreBounds(bounds);
     
+    // Store the signal set point
+    this->setPoint = *setPoint;
+    
     // Finall store the number of steps to take before
     // accumlating the error
-    nSteps = n;
+    this->nSteps = *n2error;
 }
 
 // Strt PID controller initializing the
 // p, i and d error terms.
-void PID::Start(double deviation) {
+void PID::Start(double inputSignal) {
     // Initialize PID controller variables
+    double deviation = inputSignal - setPoint;
     p_error = deviation;
     i_error = deviation;
     d_error = 0.;
-    error = 0.;
+    accumulatedError = 0.;
     nCalls = 0;
     
     // Set isInitialized flag true
@@ -49,7 +53,7 @@ void PID::UpdateError(double deviation) {
     i_error += deviation;           // integral of deviation for Ki component
     nCalls++;
     if(nCalls > nSteps)
-        error += deviation*deviation;
+        accumulatedError += deviation*deviation;
 }
 
 // Ouput the new steering angle base on
@@ -79,10 +83,18 @@ void PID::StoreGains(double *gains) {
 // then calculateing the total error and finally
 // checking that the new control value is within
 // the allowable bounds
-double PID::ControlOutput(double deviation) {
+double PID::ControlOutput(double inputSignal) {
+    double deviation = inputSignal - setPoint;
     UpdateError(deviation);
-    double output = TotalError();
-    output = getmax(output, lower_limit);
-    output = getmin(output, upper_limit);
-    return output;
+    double outputSignal = TotalError();
+    outputSignal = getmax(outputSignal, lower_limit);
+    outputSignal = getmin(outputSignal, upper_limit);
+    return outputSignal;
+}
+
+/*
+ * Return the accumulated error
+ */
+double PID::GetError() {
+    return accumulatedError;
 }
